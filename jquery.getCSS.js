@@ -1,9 +1,12 @@
 /**
  * jQuery.getCSS plugin
- * http://github.com/furf/jquery-getcss
+ * http://github.com/furf/jquery-getCSS
  *
  * Copyright 2010, Dave Furfero
  * Dual licensed under the MIT or GPL Version 2 licenses.
+ *
+ * Inspired by Julian Aubourg's Dominoes
+ * http://code.google.com/p/javascript-dominoes/
  */
 (function ($) {
 
