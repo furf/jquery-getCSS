@@ -8,111 +8,115 @@
  * Inspired by Julian Aubourg's Dominoes
  * http://code.google.com/p/javascript-dominoes/
  */
-var head = document.getElementsByTagName('head')[0],
-    loadedCompleteRegExp = /loaded|complete/,
-    callbacks = {},
-    callbacksNb = 0,
-    timer;
+(function (window, document, jQuery) {
 
-jQuery.getCSS = function (url, options, callback) {
+  var head = document.getElementsByTagName('head')[0],
+      loadedCompleteRegExp = /loaded|complete/,
+      callbacks = {},
+      callbacksNb = 0,
+      timer;
 
-  if (jQuery.isFunction(options)) {
-    callback = options;
-    options  = {};
-  }
+  jQuery.getCSS = function (url, options, callback) {
 
-  var link = document.createElement('link');
+    if (jQuery.isFunction(options)) {
+      callback = options;
+      options  = {};
+    }
 
-  link.rel   = 'stylesheet';
-  link.type  = 'text/css';
-  link.media = options.media || 'screen';
-  link.href  = url;
+    var link = document.createElement('link');
 
-  if (options.charset) {
-    link.charset = options.charset;
-  }
+    link.rel   = 'stylesheet';
+    link.type  = 'text/css';
+    link.media = options.media || 'screen';
+    link.href  = url;
 
-  if (options.title) {
-    callback = (function (callback) {
-      return function () {
-        link.title = options.title;
+    if (options.charset) {
+      link.charset = options.charset;
+    }
+
+    if (options.title) {
+      callback = (function (callback) {
+        return function () {
+          link.title = options.title;
+          callback(link, "success");
+        };
+      })(callback);
+    }
+
+    // onreadystatechange
+    if (link.readyState) {
+
+      link.onreadystatechange = function () {
+        if (loadedCompleteRegExp.test(link.readyState)) {
+          link.onreadystatechange = null;
+          callback(link, "success");
+        }
+      };
+
+    // If onload is available, use it
+    } else if (link.onload === null /* exclude Webkit => */ && link.all) {
+      link.onload = function () {
+        link.onload = null;
         callback(link, "success");
       };
-    })(callback);
-  }
 
-  // onreadystatechange
-  if (link.readyState) {
+    // In any other browser, we poll
+    } else {
 
-    link.onreadystatechange = function () {
-      if (loadedCompleteRegExp.test(link.readyState)) {
-        link.onreadystatechange = null;
+      callbacks[link.href] = function () {
         callback(link, "success");
-      }
-    };
+      };
 
-  // If onload is available, use it
-  } else if (link.onload === null /* exclude Webkit => */ && link.all) {
-    link.onload = function () {
-      link.onload = null;
-      callback(link, "success");
-    };
+      if (!callbacksNb++) {
+        // poll(cssPollFunction);
 
-  // In any other browser, we poll
-  } else {
+        timer = window.setInterval(function () {
 
-    callbacks[link.href] = function () {
-      callback(link, "success");
-    };
+          var callback,
+              stylesheet,
+              stylesheets = document.styleSheets,
+              href,
+              i = stylesheets.length;
 
-    if (!callbacksNb++) {
-      // poll(cssPollFunction);
+          while (i--) {
+            stylesheet = stylesheets[i];
+            if ((href = stylesheet.href) && (callback = callbacks[href])) {
+              try {
+                // We store so that minifiers don't remove the code
+                callback.r = stylesheet.cssRules;
+                // Webkit:
+                // Webkit browsers don't create the stylesheet object
+                // before the link has been loaded.
+                // When requesting rules for crossDomain links
+                // they simply return nothing (no exception thrown)
+                // Gecko:
+                // NS_ERROR_DOM_INVALID_ACCESS_ERR thrown if the stylesheet is not loaded
+                // If the stylesheet is loaded:
+                //  * no error thrown for same-domain
+                //  * NS_ERROR_DOM_SECURITY_ERR thrown for cross-domain
+                throw 'SECURITY';
+              } catch(e) {
+                // Gecko: catch NS_ERROR_DOM_SECURITY_ERR
+                // Webkit: catch SECURITY
+                if (/SECURITY/.test(e)) {
 
-      timer = window.setInterval(function () {
+                  // setTimeout(callback, 0);
+                  callback(link, "success");
 
-        var callback,
-            stylesheet,
-            stylesheets = document.styleSheets,
-            href,
-            i = stylesheets.length;
+                  delete callbacks[href];
 
-        while (i--) {
-          stylesheet = stylesheets[i];
-          if ((href = stylesheet.href) && (callback = callbacks[href])) {
-            try {
-              // We store so that minifiers don't remove the code
-              callback.r = stylesheet.cssRules;
-              // Webkit:
-              // Webkit browsers don't create the stylesheet object
-              // before the link has been loaded.
-              // When requesting rules for crossDomain links
-              // they simply return nothing (no exception thrown)
-              // Gecko:
-              // NS_ERROR_DOM_INVALID_ACCESS_ERR thrown if the stylesheet is not loaded
-              // If the stylesheet is loaded:
-              //  * no error thrown for same-domain
-              //  * NS_ERROR_DOM_SECURITY_ERR thrown for cross-domain
-              throw 'SECURITY';
-            } catch(e) {
-              // Gecko: catch NS_ERROR_DOM_SECURITY_ERR
-              // Webkit: catch SECURITY
-              if (/SECURITY/.test(e)) {
+                  if (!--callbacksNb) {
+                    timer = window.clearInterval(timer);
+                  }
 
-                // setTimeout(callback, 0);
-                callback(link, "success");
-
-                delete callbacks[href];
-
-                if (!--callbacksNb) {
-                  timer = window.clearInterval(timer);
                 }
-
               }
             }
           }
-        }
-      }, 13);
+        }, 13);
+      }
     }
-  }
-  head.appendChild(link);
-};
+    head.appendChild(link);
+  };
+
+})(this, this.document, this.jQuery);
